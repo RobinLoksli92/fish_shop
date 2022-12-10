@@ -5,10 +5,13 @@ from datetime import datetime, timedelta
 class MoltinApi:
 
     def __init__(self, moltin_client_id):
+        self.moltin_client_id = moltin_client_id
         self.token = None
+        self.expires_at = None
 
 
-    def get_products(self, moltin_token):
+    def get_products(self):
+        moltin_token = self.get_moltin_token()
         url = 'https://api.moltin.com/v2/products'
         headers = {
             "Authorization": f'Bearer {moltin_token}'
@@ -20,7 +23,8 @@ class MoltinApi:
         return products['data']
 
 
-    def get_product(self, moltin_token, product_id):
+    def get_product(self, product_id):
+        moltin_token = self.get_moltin_token()
         url = f'https://api.moltin.com/v2/products/{product_id}'
         headers = {
             "Authorization": f'Bearer {moltin_token}'
@@ -32,7 +36,8 @@ class MoltinApi:
         return products['data']
 
 
-    def add_product(self, moltin_token, cart_id, product_id, quantity):
+    def add_product(self, cart_id, product_id, quantity):
+        moltin_token = self.get_moltin_token()
         headers = {
             'Authorization': f'Bearer {moltin_token}',
             'Content-Type': 'application/json',
@@ -54,7 +59,8 @@ class MoltinApi:
         response.raise_for_status()
 
 
-    def get_cart(self, moltin_token, cart_id):
+    def get_cart(self, cart_id):
+        moltin_token = self.get_moltin_token()
         headers = {
             'Authorization': f'Bearer {moltin_token}',
         }
@@ -66,7 +72,8 @@ class MoltinApi:
         return response.json()
 
 
-    def get_cart_items(self, moltin_token, cart_id):
+    def get_cart_items(self, cart_id):
+        moltin_token = self.get_moltin_token()
         headers = {
             'Authorization': f'Bearer {moltin_token}',
         }
@@ -78,8 +85,8 @@ class MoltinApi:
         return response.json()
 
 
-    def get_main_image(self, image_id, moltin_token):
-
+    def get_main_image(self, image_id):
+        moltin_token = self.get_moltin_token()
         headers = {
             'Authorization': f'Bearer {moltin_token}',
         }
@@ -93,7 +100,8 @@ class MoltinApi:
         return response.json()['data']['link']['href']
 
 
-    def delete_cart_items(self, moltin_token, cart_id, product_id):
+    def delete_cart_items(self, cart_id, product_id):
+        moltin_token = self.get_moltin_token()
         headers = {
             'Authorization': f'Bearer {moltin_token}',
         }
@@ -105,7 +113,8 @@ class MoltinApi:
         response.raise_for_status()
 
 
-    def create_customer(self, moltin_token, name, email):
+    def create_customer(self, name, email):
+        moltin_token = self.get_moltin_token()
         headers = {
             'Authorization': f'Bearer {moltin_token}',
             'Content-Type': 'application/json',
@@ -127,7 +136,8 @@ class MoltinApi:
         response.raise_for_status()
 
 
-    def get_customer(self, moltin_token, id):
+    def get_customer(self, id):
+        moltin_token = self.get_moltin_token()
         headers = {
             'Authorization': f'Bearer {moltin_token}',
         }
@@ -141,23 +151,16 @@ class MoltinApi:
         return customer
 
 
-    def get_moltin_token(self, moltin_client_id):
-        data = {
-            'client_id': moltin_client_id,
-            'grant_type': 'implicit',
-        }
+    def get_moltin_token(self):
+        if not self.token or datetime.now() > self.expires_at:
+            data = {
+                'client_id': self.moltin_client_id,
+                'grant_type': 'implicit',
+            }
 
-        response = requests.post('https://api.moltin.com/oauth/access_token', data=data)
-        response.raise_for_status()
-        token = response.json()
-        expires_in = token['expires_in']
-        expires_at = datetime.now() + timedelta(seconds=expires_in)
-        token['expires_at'] = expires_at
-        return token
-
-
-    def check_moltin_token(self, moltin_client_id):
-        if not self.token or datetime.now() > self.token['expires_at']:
-            self.token = self.get_moltin_token(moltin_client_id)
-            return self.token
+            response = requests.post('https://api.moltin.com/oauth/access_token', data=data)
+            response.raise_for_status()
+            token_data = response.json()
+            self.token = token_data['access_token']
+            self.expires_at = datetime.now() + timedelta(seconds=token_data['expires_in'])
         return self.token

@@ -16,9 +16,9 @@ _database = None
 database = {}
 
 
-def start(instance_moltin_api, moltin_token, update: Update, context: CallbackContext):
-    products = instance_moltin_api.get_products(moltin_token)
-
+def start(instance_moltin_api, update: Update, context: CallbackContext):
+    products = instance_moltin_api.get_products()
+    
     keyboard = [
         [InlineKeyboardButton(product['name'], callback_data=product['id'])]
         for product in products
@@ -31,10 +31,10 @@ def start(instance_moltin_api, moltin_token, update: Update, context: CallbackCo
     return 'HANDLE_MENU'
 
 
-def handle_basket(instance_moltin_api, moltin_token, update: Update, context: CallbackContext):
+def handle_basket(instance_moltin_api, update: Update, context: CallbackContext):
     query = update.callback_query
     chat_id=query.message.chat_id 
-    items = instance_moltin_api.get_cart_items(moltin_token, chat_id)['data']
+    items = instance_moltin_api.get_cart_items(chat_id)['data']
     items_keyboard = [[InlineKeyboardButton('В меню', callback_data='В меню')]]
     items_keyboard.append(
         [InlineKeyboardButton('Оплатить', callback_data='Оплатить')]
@@ -64,20 +64,20 @@ def handle_basket(instance_moltin_api, moltin_token, update: Update, context: Ca
         )
 
 
-def handle_menu(instance_moltin_api, moltin_token, update: Update, context: CallbackContext):
+def handle_menu(instance_moltin_api, update: Update, context: CallbackContext):
     query = update.callback_query
     chat_id=query.message.chat_id
     if query.data == 'Корзина':
-        handle_basket(instance_moltin_api, moltin_token,update, context)
+        handle_basket(instance_moltin_api, update, context)
         return 'HANDLE_CART'
-    product = instance_moltin_api.get_product(moltin_token, query.data)
+    product = instance_moltin_api.get_product(query.data)
     text = '{}\n\n{}\n{}\n'.format(
         product['name'],
         product['meta']['display_price']['with_tax']['formatted'],
         product['description']
     )
     image_id = product['relationships']['main_image']['data']['id']
-    image_link = instance_moltin_api.get_main_image(image_id, moltin_token)
+    image_link = instance_moltin_api.get_main_image(image_id)
     products_weights = [1, 3, 5]
     product_id = query.data
     keyboard = [
@@ -101,13 +101,13 @@ def handle_menu(instance_moltin_api, moltin_token, update: Update, context: Call
     return 'HANDLE_DESCRIPTION'
 
 
-def handle_description(instance_moltin_api, moltin_token, update: Update, context: CallbackContext):
+def handle_description(instance_moltin_api, update: Update, context: CallbackContext):
     query = update.callback_query
     chat_id = query.message.chat_id
 
     if query.data == 'Назад':
         
-        products = instance_moltin_api.get_products(moltin_token)
+        products = instance_moltin_api.get_products()
         keyboard = [
             [InlineKeyboardButton(product['name'], callback_data=product['id'])]
             for product in products
@@ -119,13 +119,12 @@ def handle_description(instance_moltin_api, moltin_token, update: Update, contex
         return 'HANDLE_MENU'
     
     if query.data == 'Корзина':
-        handle_basket(instance_moltin_api, moltin_token, update, context)
+        handle_basket(instance_moltin_api, update, context)
         return 'HANDLE_CART'
     
     quantity, product_id = query.data.split('|')
 
     instance_moltin_api.add_product(
-        moltin_token,
         cart_id=chat_id,
         product_id=product_id,
         quantity=int(quantity)
@@ -133,12 +132,12 @@ def handle_description(instance_moltin_api, moltin_token, update: Update, contex
     return 'HANDLE_MENU'
 
 
-def handle_cart(instance_moltin_api, moltin_token, update: Update, context: CallbackContext):
+def handle_cart(instance_moltin_api, update: Update, context: CallbackContext):
     query = update.callback_query
     chat_id = query.message.chat_id
 
     if query.data == 'В меню':
-        products = instance_moltin_api.get_products(moltin_token)
+        products = instance_moltin_api.get_products()
         keyboard = [
             [InlineKeyboardButton(product['name'], callback_data=product['id'])]
             for product in products
@@ -157,8 +156,8 @@ def handle_cart(instance_moltin_api, moltin_token, update: Update, context: Call
         return 'WAITING_EMAIL'
 
     else:
-        instance_moltin_api.delete_cart_items(moltin_token, chat_id, query.data)
-        products = instance_moltin_api.get_products(moltin_token)
+        instance_moltin_api.delete_cart_items(chat_id, query.data)
+        products = instance_moltin_api.get_products()
         keyboard = [
             [InlineKeyboardButton(product['name'], callback_data=product['id'])]
             for product in products
@@ -171,13 +170,13 @@ def handle_cart(instance_moltin_api, moltin_token, update: Update, context: Call
         return 'HANDLE_MENU'
 
 
-def waiting_email(instance_moltin_api, moltin_token, update: Update, context: CallbackContext):
+def waiting_email(instance_moltin_api, update: Update, context: CallbackContext):
     user_reply = update.message.text
     chat_id = update.message.from_user.id
     name = update.message.from_user.username
     if user_reply:
-        instance_moltin_api.create_customer(moltin_token, name, email=user_reply)
-        products = instance_moltin_api.get_products(moltin_token)
+        instance_moltin_api.create_customer(name, email=user_reply)
+        products = instance_moltin_api.get_products()
         keyboard = [
             [InlineKeyboardButton(product['name'], callback_data=product['id'])]
             for product in products
@@ -194,13 +193,11 @@ def handle_users_reply(update: Update, context: CallbackContext):
     moltin_client_id = os.getenv('MOLTIN_CLIENT_ID')
     instance_moltin_api = MoltinApi(moltin_client_id)
     db = get_database_connection()
-    
+
     if update.message:
-        moltin_token = instance_moltin_api.check_moltin_token(moltin_client_id)['access_token']
         user_reply = update.message.text
         chat_id = update.message.chat_id
     elif update.callback_query:
-        moltin_token = instance_moltin_api.check_moltin_token(moltin_client_id)['access_token']
         user_reply = update.callback_query.data
         chat_id = update.callback_query.message.chat_id
     else:
@@ -213,11 +210,11 @@ def handle_users_reply(update: Update, context: CallbackContext):
         user_state = db.get(chat_id)
     
     states_functions = {
-        'START': partial(start, instance_moltin_api, moltin_token),
-        'HANDLE_MENU': partial(handle_menu, instance_moltin_api, moltin_token),
-        'HANDLE_DESCRIPTION': partial(handle_description, instance_moltin_api, moltin_token),
-        'HANDLE_CART': partial(handle_cart, instance_moltin_api, moltin_token),
-        'WAITING_EMAIL': partial(waiting_email, instance_moltin_api, moltin_token),
+        'START': partial(start, instance_moltin_api),
+        'HANDLE_MENU': partial(handle_menu, instance_moltin_api),
+        'HANDLE_DESCRIPTION': partial(handle_description, instance_moltin_api),
+        'HANDLE_CART': partial(handle_cart, instance_moltin_api),
+        'WAITING_EMAIL': partial(waiting_email, instance_moltin_api),
     }
     state_handler = states_functions[user_state]
     next_state = state_handler(update, context)
@@ -239,8 +236,6 @@ def get_database_connection():
 
 def main():
     load_dotenv()
-    # moltin_token = moltin_api.check_moltin_token(moltin_client_id, None)
-    # moltin_token = moltin_token['access_token']
     token = os.getenv("TELEGRAM_TOKEN")
     updater = Updater(token)
     dispatcher = updater.dispatcher
