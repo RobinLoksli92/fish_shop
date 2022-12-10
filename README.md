@@ -1,5 +1,6 @@
 # Телеграм-магазин морепродуктов
 Онлайн-магазин морепродуктов реализован через телеграм бота.
+
 ### Что используется
 1. [Телеграм-бот](https://tlgrm.ru/docs/bots).
 2. Для сохранения состояния пользователя в магазине используется база данных [REDIS](https://redislabs.com/).
@@ -12,6 +13,7 @@
 ```python
 pip install -r requirements.txt
 ```
+
 4. Создайте файл `.env` и пропишите в нем переменные окружения:
 - MOLTIN_CLIENT_ID - id клиента Commerce Cloud API ([подробнее здесь](https://documentation.elasticpath.com/commerce-cloud/docs/developer/get-started/your-first-api-request.html));
 - TELEGRAM_TOKEN - токен бота телеграм (получить у `@BotFather`);
