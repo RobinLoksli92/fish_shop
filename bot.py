@@ -1,4 +1,3 @@
-import requests
 from dotenv import load_dotenv
 from functools import partial
 import os
@@ -189,9 +188,7 @@ def waiting_email(instance_moltin_api, update: Update, context: CallbackContext)
         return 'HANDLE_MENU'
 
 
-def handle_users_reply(update: Update, context: CallbackContext):
-    moltin_client_id = os.getenv('MOLTIN_CLIENT_ID')
-    instance_moltin_api = MoltinApi(moltin_client_id)
+def handle_users_reply(instance_moltin_api, update: Update, context: CallbackContext):
     db = get_database_connection()
 
     if update.message:
@@ -236,12 +233,14 @@ def get_database_connection():
 
 def main():
     load_dotenv()
+    moltin_client_id = os.getenv('MOLTIN_CLIENT_ID')
+    instance_moltin_api = MoltinApi(moltin_client_id)
     token = os.getenv("TELEGRAM_TOKEN")
     updater = Updater(token)
     dispatcher = updater.dispatcher
-    dispatcher.add_handler(CallbackQueryHandler(handle_users_reply))
-    dispatcher.add_handler(MessageHandler(Filters.text, handle_users_reply))
-    dispatcher.add_handler(CommandHandler('start', handle_users_reply))
+    dispatcher.add_handler(CallbackQueryHandler(partial(handle_users_reply, instance_moltin_api)))
+    dispatcher.add_handler(MessageHandler(Filters.text, partial(handle_users_reply, instance_moltin_api)))
+    dispatcher.add_handler(CommandHandler('start', partial(handle_users_reply, instance_moltin_api)))
     updater.start_polling()
 
 
